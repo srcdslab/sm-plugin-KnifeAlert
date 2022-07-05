@@ -53,16 +53,16 @@ public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadc
 	GetEventString(hEvent, "weapon", sWepName, sizeof(sWepName));
 
 	if((victim = GetClientOfUserId(GetEventInt(hEvent, "userid"))) == 0)
-		return;
+		return Plugin_Continue;
 
 	if((attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"))) == 0)
-		return;
+		return Plugin_Continue;
 
 	if(!IsClientInGame(victim) || !IsPlayerAlive(victim))
-		return;
+		return Plugin_Continue;
 
 	if(!IsClientInGame(attacker) || !IsPlayerAlive(attacker))
-		return;
+		return Plugin_Continue;
 
 	if(victim != attacker && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 3)
 	{
@@ -71,7 +71,7 @@ public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadc
 			int damage = GetEventInt(hEvent, "dmg_health");
 
 			if(damage < 35)
-				return;
+				return Plugin_Continue;
 
 			GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
 			GetClientAuthId(attacker, AuthId_Steam2, g_sAttackerSID[victim], sizeof(g_sAttackerSID[]));
@@ -109,4 +109,5 @@ public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadc
 				attacker, sAtkSID, victim, (pOldKnifer != -1) ? sAtkAttackerName : "a disconnected player", g_sAttackerSID[attacker]);
 		}
 	}
+	return Plugin_Continue;
 }
