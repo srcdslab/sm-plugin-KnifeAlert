@@ -3,111 +3,103 @@
 
 #include <sourcemod>
 #include <multicolors>
+#tryinclude <zombiereloaded>
 
-Handle g_hCVar_NotificationTime = INVALID_HANDLE;
-char g_sAttackerSID[MAXPLAYERS + 1][32];
+ConVar g_cvNotificationTime;
 int g_iNotificationTime[MAXPLAYERS + 1];
+int g_iClientUserId[MAXPLAYERS + 1];
 
 public Plugin myinfo =
 {
 	name         = "Knife Notifications",
 	author       = "Obus + BotoX",
 	description  = "Notify administrators when zombies have been knifed by humans.",
-	version      = "2.2",
+	version      = "2.3",
 	url          = ""
 };
 
 public void OnPluginStart()
 {
-	g_hCVar_NotificationTime = CreateConVar("sm_knifenotifytime", "5", "Amount of time to pass before a knifed zombie is considered \"not knifed\" anymore.", 0, true, 0.0, true, 60.0);
+    g_cvNotificationTime = CreateConVar("sm_knifenotifytime", "5", "Amount of time to pass before a knifed zombie is considered \"not knifed\" anymore.", 0, true, 0.0, true, 60.0);
 
-	if(!HookEventEx("player_hurt", Event_PlayerHurt, EventHookMode_Pre))
-		SetFailState("[Knife-Notifications] Failed to hook \"player_hurt\" event.");
-}
+    AutoExecConfig(true);
 
-public int GetClientFromSteamID(const char[] auth)
-{
-	char clientAuth[32];
-
-	for(int client = 1; client <= MaxClients; client++)
-	{
-		if(!IsClientAuthorized(client))
-			continue;
-
-		GetClientAuthId(client, AuthId_Steam2, clientAuth, sizeof(clientAuth));
-
-		if(StrEqual(auth, clientAuth))
-			return client;
-	}
-
-	return -1;
+    if(!HookEventEx("player_hurt", Event_PlayerHurt, EventHookMode_Pre))
+        SetFailState("[Knife-Notifications] Failed to hook \"player_hurt\" event.");
 }
 
 public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadcast)
 {
-	int victim;
-	int attacker;
-	char sWepName[64];
-	char sAtkSID[32];
-	char sVictSID[32];
-	GetEventString(hEvent, "weapon", sWepName, sizeof(sWepName));
+    int victim, attacker, pOldKnifer = -1;
+    char sWepName[64], sAtkSID[32], sVictSID[32];
+    GetEventString(hEvent, "weapon", sWepName, sizeof(sWepName));
 
-	if((victim = GetClientOfUserId(GetEventInt(hEvent, "userid"))) == 0)
-		return Plugin_Continue;
+    if((victim = GetClientOfUserId(GetEventInt(hEvent, "userid"))) == 0)
+        return Plugin_Continue;
 
-	if((attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"))) == 0)
-		return Plugin_Continue;
+    if((attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"))) == 0)
+        return Plugin_Continue;
 
-	if(!IsClientInGame(victim) || !IsPlayerAlive(victim))
-		return Plugin_Continue;
+    if(!IsClientInGame(victim) || !IsPlayerAlive(victim))
+        return Plugin_Continue;
 
-	if(!IsClientInGame(attacker) || !IsPlayerAlive(attacker))
-		return Plugin_Continue;
+    if(!IsClientInGame(attacker) || !IsPlayerAlive(attacker))
+        return Plugin_Continue;
+    
+    if(victim != attacker && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 3)
+    {
+        if(StrEqual(sWepName, "knife"))
+        {
+            int damage = GetEventInt(hEvent, "dmg_health");
 
-	if(victim != attacker && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 3)
-	{
-		if(StrEqual(sWepName, "knife"))
-		{
-			int damage = GetEventInt(hEvent, "dmg_health");
+            if(damage < 35)
+                return Plugin_Continue;
 
-			if(damage < 35)
-				return Plugin_Continue;
+            GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
+            GetClientAuthId(victim, AuthId_Steam2, sVictSID, sizeof(sVictSID));
+            
+            g_iClientUserId[victim] = GetClientUserId(attacker);
+            LogMessage("%L knifed %L", attacker, victim);
 
-			GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
-			GetClientAuthId(attacker, AuthId_Steam2, g_sAttackerSID[victim], sizeof(g_sAttackerSID[]));
-			GetClientAuthId(victim, AuthId_Steam2, sVictSID, sizeof(sVictSID));
-			LogMessage("%L knifed %L", attacker, victim);
+            g_iNotificationTime[victim] = (GetTime() + GetConVarInt(g_cvNotificationTime));
 
-			g_iNotificationTime[victim] = (GetTime() + GetConVarInt(g_hCVar_NotificationTime));
-
-			for(int i = 1; i <= MaxClients; i++)
-			{
-				if(IsClientConnected(i) && IsClientInGame(i) && (IsClientSourceTV(i) || GetAdminFlag(GetUserAdmin(i), Admin_Generic)))
-					CPrintToChat(i, "{green}[SM] {blue}%N {default}knifed {red}%N", attacker, victim);
-			}
-		}
-	}
-	else if(victim != attacker && GetClientTeam(attacker) == 2 && GetClientTeam(victim) == 3)
-	{
-		int pOldKnifer;
-		pOldKnifer = GetClientFromSteamID(g_sAttackerSID[attacker]);
-
-		if(g_iNotificationTime[attacker] > GetTime() && (victim != pOldKnifer))
-		{
-			char sAtkAttackerName[MAX_NAME_LENGTH];
-			GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
-
-			if(pOldKnifer != -1)
-			{
-				GetClientName(pOldKnifer, sAtkAttackerName, sizeof(sAtkAttackerName));
-				LogMessage("%L killed %L (Recently knifed by %L)", attacker, victim, pOldKnifer);
-			}
-			else
-				LogMessage("%L killed %L (Recently knifed by a disconnected player [%s])", attacker, victim, g_sAttackerSID[attacker]);
-
-			CPrintToChatAll("{green}[SM] {red}%N {green}(%s){default} killed {blue}%N{default} - knifed by {blue}%s {green}(%s)",
-				attacker, sAtkSID, victim, (pOldKnifer != -1) ? sAtkAttackerName : "a disconnected player", g_sAttackerSID[attacker]);
-		}
-	}
-	return Plugin_Continue;
+            for(int i = 1; i <= MaxClients; i++)
+            {
+                if(IsClientConnected(i) && IsClientInGame(i) && (IsClientSourceTV(i) || GetAdminFlag(GetUserAdmin(i), Admin_Generic)))
+                    CPrintToChat(i, "{green}[SM] {blue}%N {default}knifed {red}%N{default}.", attacker, victim);
+            }
+        }
+    }
+    else if(victim != attacker && GetClientTeam(attacker) == 2 && GetClientTeam(victim) == 3)
+    {
+        if(g_iNotificationTime[attacker] > GetTime())
+        {
+            pOldKnifer = GetClientOfUserId(g_iClientUserId[attacker]);
+            if((victim != pOldKnifer))
+            {    
+                char sAtkAttackerName[MAX_NAME_LENGTH];
+                GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
+                
+                char OldKniferSteamID[32];
+                GetClientAuthId(pOldKnifer, AuthId_Steam2, OldKniferSteamID, sizeof(OldKniferSteamID));
+    
+                if(pOldKnifer != -1)
+                {
+                    GetClientName(pOldKnifer, sAtkAttackerName, sizeof(sAtkAttackerName));
+                    LogMessage("%L killed %L (Recently knifed by %L)", attacker, victim, pOldKnifer);
+                }
+                else
+                    LogMessage("%L killed %L (Recently knifed by a disconnected player [%s])", attacker, victim, OldKniferSteamID);
+    
+                #if defined _zr_included
+                CPrintToChatAll("{green}[SM] {red}%N {green}(%s){default} infected {blue}%N{default} - knifed by {blue}%s{default}. {green}(%s)",
+                    attacker, sAtkSID, victim, (pOldKnifer != -1) ? sAtkAttackerName : "a disconnected player", OldKniferSteamID);
+                #else
+                CPrintToChatAll("{green}[SM] {red}%N {green}(%s){default} killed {blue}%N{default} - knifed by {blue}%s{default}. {green}(%s)",
+                    attacker, sAtkSID, victim, (pOldKnifer != -1) ? sAtkAttackerName : "a disconnected player", OldKniferSteamID);
+                #endif
+            }
+        }
+    }
+    return Plugin_Continue;
 }
