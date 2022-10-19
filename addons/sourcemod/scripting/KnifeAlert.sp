@@ -5,6 +5,7 @@
 #include <multicolors>
 #tryinclude <zombiereloaded>
 
+bool g_bKnifeMode = false;
 ConVar g_cvNotificationTime;
 int g_iNotificationTime[MAXPLAYERS + 1];
 int g_iClientUserId[MAXPLAYERS + 1];
@@ -14,7 +15,7 @@ public Plugin myinfo =
 	name         = "Knife Notifications",
 	author       = "Obus + BotoX",
 	description  = "Notify administrators when zombies have been knifed by humans.",
-	version      = "2.3",
+	version      = "2.4",
 	url          = ""
 };
 
@@ -28,8 +29,28 @@ public void OnPluginStart()
         SetFailState("[Knife-Notifications] Failed to hook \"player_hurt\" event.");
 }
 
+public void OnAllPluginsLoaded()
+{
+	g_bKnifeMode = LibraryExists("KnifeMode");
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "KnifeMode"))
+		g_bKnifeMode = true;
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "KnifeMode"))
+		g_bKnifeMode = false;
+}
+
 public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadcast)
 {
+    if(g_bKnifeMode == true)
+        return Plugin_Continue;
+    
     int victim, attacker, pOldKnifer = -1;
     char sWepName[64], sAtkSID[32], sVictSID[32];
     GetEventString(hEvent, "weapon", sWepName, sizeof(sWepName));
