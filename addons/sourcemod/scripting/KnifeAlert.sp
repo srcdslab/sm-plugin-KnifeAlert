@@ -7,6 +7,7 @@
 
 bool g_bKnifeMode = false;
 ConVar g_cvNotificationTime;
+ConVar g_cvKnifeModMsgs;
 int g_iNotificationTime[MAXPLAYERS + 1];
 int g_iClientUserId[MAXPLAYERS + 1];
 
@@ -22,6 +23,7 @@ public Plugin myinfo =
 public void OnPluginStart()
 {
     g_cvNotificationTime = CreateConVar("sm_knifenotifytime", "5", "Amount of time to pass before a knifed zombie is considered \"not knifed\" anymore.", 0, true, 0.0, true, 60.0);
+    g_cvKnifeModMsgs     = CreateConVar("sm_knifemod_blocked", "1", "Block Alert messages when KnifeMode library is detected [0 = Print Alert | 1 = Block Alert]");
 
     AutoExecConfig(true);
 
@@ -48,8 +50,11 @@ public void OnLibraryRemoved(const char[] name)
 
 public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadcast)
 {
-    if(g_bKnifeMode == true)
-        return Plugin_Continue;
+    if (g_cvKnifeModMsgs.IntValue >= 1)
+    {
+        if(g_bKnifeMode == true)
+            return Plugin_Continue;
+    }
     
     int victim, attacker, pOldKnifer = -1;
     char sWepName[64], sAtkSID[32], sVictSID[32];
