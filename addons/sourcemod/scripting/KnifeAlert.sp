@@ -2,6 +2,7 @@
 #pragma newdecls required
 
 #include <sourcemod>
+
 #include <multicolors>
 #tryinclude <zombiereloaded>
 
@@ -16,7 +17,7 @@ public Plugin myinfo =
 	name         = "Knife Notifications",
 	author       = "Obus + BotoX",
 	description  = "Notify administrators when zombies have been knifed by humans.",
-	version      = "2.4",
+	version      = "2.4.0",
 	url          = ""
 };
 
