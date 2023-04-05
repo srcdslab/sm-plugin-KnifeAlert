@@ -101,7 +101,7 @@ public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadc
 		{
 			int damage = GetEventInt(hEvent, "dmg_health");
 
-			if(damage < 35)
+			if(damage < 15) // Minimum dmg for victim without helmet is 17 on CS:S
 				return Plugin_Continue;
 
 			GetClientAuthId(attacker, AuthId_Steam2, sAtkSID, sizeof(sAtkSID));
@@ -124,7 +124,7 @@ public Action Event_PlayerHurt(Handle hEvent, const char[] name, bool dontBroadc
 			for(int i = 1; i <= MaxClients; i++)
 			{
 				if(IsClientConnected(i) && IsClientInGame(i) && (IsClientSourceTV(i) || GetAdminFlag(GetUserAdmin(i), Admin_Generic)))
-					CPrintToChat(i, "{green}[SM] {blue}%N {default}knifed {red}%N{default}.", attacker, victim);
+					CPrintToChat(i, "{green}[SM] {blue}%N {default}knifed {red}%N{default}. (-%d HP)", attacker, victim, damage);
 			}
 		}
 	}
